@@ -182,7 +182,16 @@ function fixEmissive(g){const js=g.parser&&g.parser.json;if(!js||!js.materials)r
   g.scene.traverse(o=>{if(!o.isMesh)return;(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{
     if(!m.name||!m.emissive)return;const d=js.materials.find(x=>x.name===m.name);const e=d&&d.extensions&&d.extensions.KHR_materials_emissive_strength;
     if(e){m.emissiveIntensity=e.emissiveStrength;m.needsUpdate=true}})})}
-new THREE.GLTFLoader().load('blade.glb',g=>{fixEmissive(g);setModel(g.scene);st('Tap to play')},undefined,()=>st('Tap to play'));
+/* load the model from the site: blade.glb (or model.glb). If it fails, say why and keep the built-in sword. */
+(async()=>{let why='';
+  for(const name of ['blade.glb','model.glb']){
+    try{const r=await fetch(name,{cache:'no-cache'});if(!r.ok){why=name+' not found ('+r.status+')';continue}
+      const ab=await r.arrayBuffer();
+      if(ab.byteLength<2000){why=name+' is only '+ab.byteLength+' bytes (Git LFS pointer?)';continue}
+      const g=await new Promise((ok,bad)=>loader.parse(ab,'',ok,bad));
+      fixEmissive(g);setModel(g.scene);st('Tap to play');return;
+    }catch(e){console.error(e);why=name+': '+((e&&e.message)||'could not be read')}}
+  st('Model failed · '+why+' · tap to play')})();
 
 /* ---- analysis: everything happens in the browser, nothing is uploaded ---- */
 function fftSetup(N){const l=Math.log2(N),rev=new Uint16Array(N),cs=new Float32Array(N/2),sn=new Float32Array(N/2);
