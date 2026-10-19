@@ -182,16 +182,23 @@ function fixEmissive(g){const js=g.parser&&g.parser.json;if(!js||!js.materials)r
   g.scene.traverse(o=>{if(!o.isMesh)return;(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{
     if(!m.name||!m.emissive)return;const d=js.materials.find(x=>x.name===m.name);const e=d&&d.extensions&&d.extensions.KHR_materials_emissive_strength;
     if(e){m.emissiveIntensity=e.emissiveStrength;m.needsUpdate=true}})})}
-/* load the model from the site: blade.glb (or model.glb). If it fails, say why and keep the built-in sword. */
+/* load the model from the site: blade.glb (or model.glb). Play waits until this finishes.
+   If it fails, keep the built-in sword and leave the reason visible in the corner. */
+let modelDone=false;
 (async()=>{let why='';
   for(const name of ['blade.glb','model.glb']){
     try{const r=await fetch(name,{cache:'no-cache'});if(!r.ok){why=name+' not found ('+r.status+')';continue}
-      const ab=await r.arrayBuffer();
+      const tot=+r.headers.get('content-length')||0,rd=r.body.getReader(),parts=[];let got=0;
+      for(;;){const {done,value}=await rd.read();if(done)break;parts.push(value);got+=value.length;st('Loading model '+(tot?Math.round(got/tot*100)+'%':Math.round(got/1e6)+' MB'))}
+      const ab=await new Blob(parts).arrayBuffer();
       if(ab.byteLength<2000){why=name+' is only '+ab.byteLength+' bytes (Git LFS pointer?)';continue}
+      st('Preparing model…');
       const g=await new Promise((ok,bad)=>loader.parse(ab,'',ok,bad));
-      fixEmissive(g);setModel(g.scene);st('Tap to play');return;
+      fixEmissive(g);setModel(g.scene);modelDone=true;st('Tap to play');return;
     }catch(e){console.error(e);why=name+': '+((e&&e.message)||'could not be read')}}
-  st('Model failed · '+why+' · tap to play')})();
+  modelDone=true;st('Model failed · '+why+' · tap to play');
+  const n=document.createElement('div');n.textContent='Model failed: '+why;
+  n.style.cssText='position:fixed;left:10px;bottom:8px;z-index:6;font:11px system-ui,sans-serif;color:#7b86a3;pointer-events:none';document.body.appendChild(n)})();
 
 /* ---- analysis: everything happens in the browser, nothing is uploaded ---- */
 function fftSetup(N){const l=Math.log2(N),rev=new Uint16Array(N),cs=new Float32Array(N/2),sn=new Float32Array(N/2);
@@ -323,7 +330,7 @@ const vigEl=$('vig'),grainEl=$('grain');
 {const g=document.createElement('canvas');g.width=g.height=180;const x=g.getContext('2d'),im=x.createImageData(180,180);
  for(let i=0;i<im.data.length;i+=4){const v=Math.random()*255;im.data[i]=im.data[i+1]=im.data[i+2]=v;im.data[i+3]=255}
  x.putImageData(im,0,0);grainEl.style.backgroundImage=`url(${g.toDataURL()})`}
-$('veil').onclick=begin;
+$('veil').onclick=()=>{if(modelDone)begin()};
 let tapX=0,tapY=0,tapT=0;
 gl.domElement.addEventListener('pointerdown',e=>{tapX=e.clientX;tapY=e.clientY;tapT=performance.now()});
 gl.domElement.addEventListener('pointerup',e=>{if(buf&&performance.now()-tapT<350&&Math.hypot(e.clientX-tapX,e.clientY-tapY)<8)togglePlay()});
