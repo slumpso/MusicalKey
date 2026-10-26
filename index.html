@@ -5,29 +5,50 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Floating Blade</title>
 <style>
-:root{--bg:#020205;--fg:#dfe6f5;--dim:#7b86a3;--panel:rgba(10,12,22,.74);--edge:rgba(150,165,230,.25);box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root{--bg:#020205;--fg:#fff;--dim:rgba(255,255,255,.6);--panel:rgba(8,8,8,.58);--edge:rgba(255,255,255,.13);--chip:rgba(255,255,255,.06);--chip-hi:rgba(255,255,255,.14);--accent:#fff;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#020205}}
 :root[data-theme="dark"]{--bg:#020205}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,sans-serif;overflow:hidden}
 canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 #fx{pointer-events:none}
-#bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));width:min(700px,calc(100% - 24px));background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--edge);border-radius:16px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;transition:opacity .6s}
-#bar.hide{opacity:0}
-button,label.btn{font:inherit;font-size:13px;color:var(--fg);background:rgba(120,130,200,.14);border:1px solid var(--edge);border-radius:10px;padding:8px 12px;cursor:pointer;white-space:nowrap}
-button:hover,label.btn:hover{background:rgba(140,150,240,.28)}
-input[type=file]{display:none}
-#play{width:42px;padding:8px 0}
-.seek{flex:1 1 160px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);min-width:150px}
-input[type=range]{accent-color:#8b9bff;width:100%}
-#panel{display:none;flex:1 1 100%;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:6px 18px;max-height:42vh;overflow:auto;padding:4px 2px 8px}
-#panel.open{display:grid}
-.sl{display:grid;grid-template-columns:104px 1fr 36px;align-items:center;gap:8px;font-size:12px;color:var(--dim)}
-.sl b{font-weight:400;text-align:right;color:var(--fg)}
-#panel .row{grid-column:1/-1;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
-.tg{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--fg);cursor:pointer}
-#st{flex:1 1 100%;font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#hint{position:fixed;top:calc(16px + env(safe-area-inset-top,0px));left:0;right:0;text-align:center;font-size:12px;letter-spacing:.3em;text-transform:uppercase;color:var(--dim);pointer-events:none;transition:opacity 1s}
+/* the big start button: a liquid-glass play triangle. The glass blurs, brightens and saturates the scene behind it (and,
+   in Chromium, ripples it through a displacement filter); an SVG layer adds the tint, an inner glow and a bright rim lit
+   from the top left. No filter or opacity on #hint itself: either would cut the glass off from the scene behind it */
+#hint{position:fixed;left:50%;top:46%;transform:translate(-50%,-50%);width:80px;height:88px;padding:14px;cursor:pointer;user-select:none;-webkit-user-select:none}
+#hint>*{position:absolute;left:14px;top:14px;width:80px;height:88px;overflow:visible;transform-origin:50% 60%;transition:opacity .45s ease-in,transform .5s ease-out,filter .45s ease-in}
+#hint .lg-glass{clip-path:path('M14 20Q14 8 24.4 14L69.1 40Q76 44 69.1 48L24.4 74Q14 80 14 68Z');background:rgba(255,255,255,.05);-webkit-backdrop-filter:blur(5px) saturate(1.7) brightness(1.5);backdrop-filter:blur(5px) saturate(1.7) brightness(1.5);transition:opacity .45s ease-in,transform .5s ease-out,filter .45s ease-in,background .3s}
+#hint.liquid .lg-glass{backdrop-filter:url(#lgf) saturate(1.7) brightness(1.5)}
+#hint:hover .lg-glass{background:rgba(255,255,255,.11)}
+#hint.gone{pointer-events:none}
+/* pressed, it leaves like a ghost: drifts up, stretches and leans as it thins out and blurs away (and materialises the
+   same way in reverse when it comes back) */
+#hint.gone>*{opacity:0;transform:translateY(-30px) scale(1.12,1.28) skewX(-5deg);filter:blur(7px);
+  transition:opacity 1.1s cubic-bezier(.4,0,.7,1),transform 1.4s cubic-bezier(.2,.65,.3,1),filter 1.2s ease-in}
+#hint.gone>svg:last-child{transition-delay:.06s}
+#drop{position:fixed;inset:12px;border:2px dashed var(--accent);border-radius:20px;display:grid;place-items:center;font-size:18px;background:rgba(10,14,8,.55);opacity:0;pointer-events:none;transition:opacity .2s}
+#drop.on{opacity:1}
+#bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));width:min(780px,calc(100% - 24px));padding:4px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;transition:opacity .6s;text-shadow:0 1px 8px rgba(0,0,0,.75)}
+#bar.hide,#hud.hide{opacity:0}
+button,label.btn,select{font:inherit;font-size:13px;color:var(--fg);background:var(--chip);border:1px solid var(--edge);border-radius:10px;padding:8px 12px;cursor:pointer;white-space:nowrap}
+button:hover,label.btn:hover{background:var(--chip-hi)}
+/* the main bar is bare: white text and icons straight over the scene, no boxes */
+#bar button,#bar label.btn{background:none;border:0;padding:6px 8px;opacity:.82}
+#bar button:hover,#bar label.btn:hover{background:none;opacity:1}
+#bar label.tog{opacity:.4}
+#bar label.tog:has(input:checked){opacity:.95}
+button:disabled{opacity:.45;cursor:wait}
+button:focus-visible,label.btn:has(input:focus-visible),input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+label.btn input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+#play{min-width:46px;font-size:15px}
+.seek{display:flex;align-items:center;gap:8px;flex:1 1 200px;min-width:0;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
+.seek input{flex:1;min-width:0}
+input[type=range]{accent-color:var(--accent)}
+#vol{width:80px}
+.foot{flex:1 1 100%;display:flex;gap:16px;align-items:baseline;min-width:0}
+#tag{flex:none;font-size:12px;color:var(--dim);letter-spacing:.02em}
+#status{flex:1 1 auto;font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+@media (prefers-reduced-motion:reduce){#bar,#hint>*{transition:none}}
 #vig,#grain{position:fixed;inset:0;pointer-events:none}
 #vig{background:radial-gradient(ellipse at center,rgba(0,0,0,0) 40%,rgba(0,0,0,.9) 100%)}
 #grain{mix-blend-mode:overlay;background-size:180px 180px}
@@ -41,6 +62,16 @@ input[type=range]{accent-color:#8b9bff;width:100%}
 <canvas id="fx"></canvas>
 <div id="vig"></div><div id="grain"></div>
 <div id="veil"><svg class="keyhole" viewBox="0 0 100 130" aria-hidden="true"><path d="M50 6a30 30 0 0 1 16.5 55.1L77 117a5 5 0 0 1-4.9 6H27.9a5 5 0 0 1-4.9-6L33.5 61.1A30 30 0 0 1 50 6z"/></svg><div id="veilTxt">Loading…</div></div>
+<div id="hint" class="gone" role="button" aria-label="Play" title="Play"><svg aria-hidden="true" viewBox="0 0 80 88"><defs><filter id="lgSh" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter></defs><path d="M14 20Q14 8 24.4 14L69.1 40Q76 44 69.1 48L24.4 74Q14 80 14 68Z" fill="none" stroke="#000" stroke-opacity=".55" stroke-width="10" filter="url(#lgSh)" transform="translate(0 3)"/></svg><div class="lg-glass"></div><svg aria-hidden="true" viewBox="0 0 80 88"><defs><linearGradient id="lgEdge" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset=".5" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity=".55"/></linearGradient><linearGradient id="lgFill" x1="0" y1="0" x2=".8" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".55" stop-color="#fff" stop-opacity=".03"/><stop offset="1" stop-color="#fff" stop-opacity=".09"/></linearGradient><clipPath id="lgClip"><path d="M14 20Q14 8 24.4 14L69.1 40Q76 44 69.1 48L24.4 74Q14 80 14 68Z"/></clipPath><filter id="lgSoft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.2"/></filter></defs><path d="M14 20Q14 8 24.4 14L69.1 40Q76 44 69.1 48L24.4 74Q14 80 14 68Z" fill="url(#lgFill)"/><path d="M14 20Q14 8 24.4 14L69.1 40Q76 44 69.1 48L24.4 74Q14 80 14 68Z" fill="none" stroke="#fff" stroke-opacity=".4" stroke-width="6" filter="url(#lgSoft)" clip-path="url(#lgClip)"/><path d="M14 20Q14 8 24.4 14L69.1 40Q76 44 69.1 48L24.4 74Q14 80 14 68Z" fill="none" stroke="url(#lgEdge)" stroke-width="1.3"/></svg></div><svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="lgf" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".035 .045" numOctaves="1" seed="3" result="n"/><feGaussianBlur in="n" stdDeviation="2.5" result="nb"/><feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b"/><feDisplacementMap in="b" in2="nb" scale="16" xChannelSelector="R" yChannelSelector="G"/></filter></svg>
+<div id="drop">Drop an MP3 to play it</div>
+<div id="bar">
+  <button id="play" title="Play / pause (space)" aria-label="Play">▶</button>
+  <label class="btn">♪ Load MP3<input id="file" type="file" accept="audio/*,.mp3"></label>
+  <div class="seek"><span id="t0">0:00</span><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Seek"><span id="t1">0:00</span></div>
+  <input id="vol" type="range" min="0" max="100" value="80" title="Volume" aria-label="Volume">
+  <button id="fs" title="Full screen" aria-label="Full screen">⛶</button>
+  <div class="foot"><div id="status">Loading…</div></div>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script>
@@ -193,46 +224,89 @@ let modelDone=false;
       if(ab.byteLength<2000){why=name+' is only '+ab.byteLength+' bytes (Git LFS pointer?)';continue}
       st('Preparing model…');
       const g=await new Promise((ok,bad)=>loader.parse(ab,'',ok,bad));
-      fixEmissive(g);setModel(g.scene);modelDone=true;st('Tap to play');return;
+      fixEmissive(g);setModel(g.scene);modelDone=true;return;
     }catch(e){console.error(e);why=name+': '+((e&&e.message)||'could not be read')}}
-  modelDone=true;st('Model failed · '+why+' · tap to play');
+  modelDone=true;
   const n=document.createElement('div');n.textContent='Model failed: '+why;
   n.style.cssText='position:fixed;left:10px;bottom:8px;z-index:6;font:11px system-ui,sans-serif;color:#7b86a3;pointer-events:none';document.body.appendChild(n)})();
 
-/* ---- analysis: everything happens in the browser, nothing is uploaded ---- */
 function fftSetup(N){const l=Math.log2(N),rev=new Uint16Array(N),cs=new Float32Array(N/2),sn=new Float32Array(N/2);
   for(let i=0;i<N;i++){let r=0;for(let b=0;b<l;b++)if(i>>b&1)r|=1<<(l-1-b);rev[i]=r}
   for(let i=0;i<N/2;i++){cs[i]=Math.cos(2*Math.PI*i/N);sn[i]=-Math.sin(2*Math.PI*i/N)}
   return(re,im)=>{for(let i=0;i<N;i++){const j=rev[i];if(j>i){let t=re[i];re[i]=re[j];re[j]=t;t=im[i];im[i]=im[j];im[j]=t}}
     for(let s=2;s<=N;s<<=1){const h=s>>1,sp=N/s;for(let i=0;i<N;i+=s)for(let k=0;k<h;k++){const a=i+k,b=a+h,wr=cs[k*sp],wi=sn[k*sp],xr=re[b]*wr-im[b]*wi,xi=re[b]*wi+im[b]*wr;re[b]=re[a]-xr;im[b]=im[a]-xi;re[a]+=xr;im[a]+=xi}}}}
 const p95=x=>{const s=Float32Array.from(x).sort();return s[Math.floor(s.length*.95)]||1e-9};
+/* ---- analysis: everything happens in the browser, nothing is uploaded ----
+   Hits come from the drum layer of the song (a harmonic/percussive split), found frequency by frequency on a ~12 ms
+   step, so held chords, vocals and bass notes don't set off boxes. Beats are tracked so they follow the song as it
+   pushes and drags, instead of a fixed grid that drifts off over a long track. */
+const ANA_LAT=.012;   // measured: hits are timed to the steepest part of each attack, which lands 12 ms early
 async function analyse(buf,prog){
-  const sr=buf.sampleRate,N=1024,H=512,a=buf.getChannelData(0),b=buf.numberOfChannels>1?buf.getChannelData(1):a,nF=Math.max(16,Math.floor((a.length-N)/H)),fps=sr/H;
-  const fft=fftSetup(N),re=new Float32Array(N),im=new Float32Array(N),mag=new Float32Array(N/2),prev=new Float32Array(N/2),win=new Float32Array(N).map((_,i)=>.5-.5*Math.cos(2*Math.PI*i/N));
-  const hz=sr/N,ed=[[25,150],[150,600],[600,3500],[3500,14000]].map(([l,h])=>[Math.max(1,Math.round(l/hz)),Math.min(N/2-1,Math.round(h/hz))]);
-  const E=ed.map(()=>new Float32Array(nF)),F=ed.map(()=>new Float32Array(nF));
-  for(let f=0;f<nF;f++){
-    for(let i=0;i<N;i++){re[i]=(a[f*H+i]+b[f*H+i])*.5*win[i];im[i]=0}
-    fft(re,im);for(let i=0;i<N/2;i++)mag[i]=Math.hypot(re[i],im[i]);
-    ed.forEach(([lo,hi],k)=>{let e=0,x=0;for(let i=lo;i<=hi;i++){e+=mag[i];const d=mag[i]-prev[i];if(d>0)x+=d}E[k][f]=e/(hi-lo+1);F[k][f]=x/(hi-lo+1)});
-    prev.set(mag);if(f%250===0){prog(f/nF);await new Promise(r=>setTimeout(r))}
-  }
-  const ne=E.map(x=>{const p=p95(x);return x.map(v=>Math.min(1,v/p))}),ons=[];
-  F.forEach((x,k)=>{const pk=p95(x),W=Math.round(.35*fps),gap=Math.round((k?.06:.1)*fps),pre=new Float64Array(nF+1);let last=-99;
-    for(let i=0;i<nF;i++)pre[i+1]=pre[i]+x[i];
-    for(let i=1;i<nF-1;i++){const lo=Math.max(0,i-W),hi=Math.min(nF,i+W+1),m=(pre[hi]-pre[lo])/(hi-lo);
-      if(x[i]>x[i-1]&&x[i]>=x[i+1]&&x[i]>m*1.6+pk*.08&&i-last>gap){ons.push({t:i/fps,b:k,s:Math.min(1,(x[i]-m)/(pk*.9))});last=i}}});
-  const O=new Float32Array(nF);F.forEach(x=>{const pk=p95(x);for(let i=0;i<nF;i++)O[i]+=Math.min(2,x[i]/pk)});
-  const lo=Math.round(fps*60/180),hi=Math.round(fps*60/70),AC=new Float32Array(hi+2);let best=0,bl=lo;
-  for(let l=lo;l<=hi+1;l++){let s=0;for(let i=0;i+l<nF;i++)s+=O[i]*O[i+l];s/=(nF-l);const bpm=60*fps/l;AC[l]=s*Math.exp(-Math.pow(Math.log2(bpm/120),2)/.5);if(l<=hi&&AC[l]>best){best=AC[l];bl=l}}
-  const y0=AC[bl-1],y1=AC[bl],y2=AC[bl+1],d=y0-2*y1+y2,T=bl+(d?.5*(y0-y2)/d:0);
-  let bp=0,bs=-1;for(let p=0;p<T;p++){let s=0;for(let t=p;t<nF;t+=T)s+=O[Math.round(t)];if(s>bs){bs=s;bp=p}}
-  const beats=[];let t=bp;const w=Math.round(T*.12);
-  while(t<nF-1){const c=Math.round(t);let m=c,mv=-1;for(let j=Math.max(0,c-w);j<=Math.min(nF-1,c+w);j++)if(O[j]>mv){mv=O[j];m=j}
-    t+=(m-c)*.3;beats.push(t/fps);t+=T}
-  const sc=[0,0,0,0];beats.forEach((tb,i)=>sc[i%4]+=ne[0][Math.min(nF-1,Math.round(tb*fps))]);const db=sc.indexOf(Math.max(...sc));
-  beats.forEach((tb,i)=>ons.push({t:tb,b:4,s:i%4===db?1:.5}));
-  return{dur:buf.duration,fps,ne,ev:ons.sort((x,y)=>x.t-y.t),bpm:60*fps/T};
+  const cl=(v,a,b)=>Math.max(a,Math.min(b,v)),pct=(a,p)=>{const s=Float32Array.from(a).sort();return s[Math.min(s.length-1,Math.floor(p*s.length))]};
+  const lmean=(a,W)=>{const n=a.length,ps=new Float64Array(n+1);for(let i=0;i<n;i++)ps[i+1]=ps[i]+a[i];const o=new Float32Array(n);
+    for(let i=0;i<n;i++){const lo=Math.max(0,i-W),hi=Math.min(n,i+W+1);o[i]=(ps[hi]-ps[lo])/(hi-lo)}return o};
+  const tick=()=>new Promise(r=>setTimeout(r));
+  const ch=buf.numberOfChannels,sr0=buf.sampleRate,dec=Math.max(1,Math.round(sr0/22050)),sr=sr0/dec,L=Math.floor(buf.length/dec);
+  const x=new Float32Array(L),chans=[...Array(ch)].map((_,i)=>buf.getChannelData(i));
+  for(let i=0;i<L;i++){let s=0;for(let c=0;c<ch;c++){const d=chans[c];for(let k=0;k<dec;k++)s+=d[i*dec+k]}x[i]=s/(ch*dec)}
+  const N=1024,hop=256,fps=sr/hop,F=Math.max(16,Math.floor((L-N)/hop)+1),fft=fftSetup(N);
+  const win=new Float32Array(N).map((_,i)=>.5-.5*Math.cos(2*Math.PI*i/N));
+  const bandHz=[[25,150],[150,600],[600,3500],[3500,11000]],hz=sr/N,ed=bandHz.map(([l,h])=>[Math.max(1,Math.round(l/hz)),Math.min(N/2-1,Math.round(h/hz))]);
+  // log-frequency bins, 12 per octave (low down, where FFT bins are wider than a semitone, empty bins are dropped)
+  const lb=new Int16Array(N/2);let M=0,prev=-1;for(let k=0;k<N/2;k++){const f=k*hz;if(f<25||f>11000){lb[k]=-1;continue}const q=Math.floor(12*Math.log2(f/25));if(q!==prev){prev=q;M++}lb[k]=M-1}
+  const fcs=new Float32Array(M),fcn=new Float32Array(M);for(let k=0;k<N/2;k++)if(lb[k]>=0){fcs[lb[k]]+=k*hz;fcn[lb[k]]++}
+  const bandOf=Int8Array.from(fcs,(v,m)=>bandHz.findIndex(([a,b])=>v/fcn[m]>=a&&v/fcn[m]<b));
+  const S=new Float32Array(F*M),E=ed.map(()=>new Float32Array(F)),re=new Float32Array(N),im=new Float32Array(N);
+  for(let f=0;f<F;f++){const o=f*hop,row=f*M;
+    for(let i=0;i<N;i++){re[i]=(x[o+i]||0)*win[i];im[i]=0}
+    fft(re,im);
+    for(let k=1;k<N/2;k++){const p=re[k]*re[k]+im[k]*im[k];if(lb[k]>=0)S[row+lb[k]]+=p}
+    ed.forEach(([lo,hi],b)=>{let e=0;for(let i=lo;i<=hi;i++)e+=Math.hypot(re[i],im[i]);E[b][f]=e/(hi-lo+1)});
+    for(let m=0;m<M;m++)S[row+m]=Math.sqrt(S[row+m]);
+    if((f&1023)===0){prog(f/F*.45);await tick()}}
+  // drums apart from everything else: sustained sounds are smooth along time, hits are smooth across frequency
+  const H=new Float32Array(F*M),P=new Float32Array(F*M),wb=new Float32Array(32);
+  const med=n=>{for(let i=1;i<n;i++){const v=wb[i];let j=i-1;while(j>=0&&wb[j]>v){wb[j+1]=wb[j];j--}wb[j+1]=v}return wb[n>>1]};
+  for(let m=0;m<M;m++){for(let f=0;f<F;f++){let n=0;for(let q=Math.max(0,f-8);q<=Math.min(F-1,f+8);q++)wb[n++]=S[q*M+m];H[f*M+m]=med(n)}
+    if((m&7)===0){prog(.45+m/M*.2);await tick()}}
+  for(let f=0;f<F;f++){const row=f*M;for(let m=0;m<M;m++){let n=0;for(let q=Math.max(0,m-6);q<=Math.min(M-1,m+6);q++)wb[n++]=S[row+q];P[row+m]=med(n)}
+    if((f&2047)===0){prog(.65+f/F*.15);await tick()}}
+  for(let i=0;i<F*M;i++){const h=H[i]*H[i],p=P[i]*P[i];P[i]=Math.log1p(10*S[i]*p/(h+p+1e-12))}
+  // onsets: the rise in each bin over the frame two steps back (against the louder of its neighbours there, so vibrato
+  // and slides don't count), summed per band
+  const OD=[0,1,2,3].map(()=>new Float32Array(F)),O=new Float32Array(F);
+  for(let f=2;f<F;f++){const r=f*M,r0=(f-2)*M;for(let m=0;m<M;m++){const b=bandOf[m];if(b<0)continue;
+    const d=P[r+m]-Math.max(P[r0+m],m>0?P[r0+m-1]:0,m<M-1?P[r0+m+1]:0);if(d>0){OD[b][f]+=d;O[f]+=d}}}
+  prog(.82);await tick();
+  const tOf=f=>((f-1)*hop+N/2)/sr,W=Math.round(fps*.35),ons=[];
+  OD.forEach((x,k)=>{const pk=pct(x,.95)||1e-9,mean=lmean(x,W),gap=Math.round((k?.06:.1)*fps);let last=-99;
+    for(let i=3;i<F-3;i++){const v=x[i];if(v<x[i-1]||v<x[i+1]||v<x[i-2]||v<x[i+2]||v<x[i-3]||v<x[i+3])continue;
+      if(v>mean[i]*1.6+pk*.2&&i-last>gap){ons.push({t:tOf(i)+ANA_LAT,b:k,s:Math.min(1,(v-mean[i])/(pk*1.15))});last=i}}});
+  // tempo by autocorrelation of the combined onset curve
+  {const p=pct(O,.98)||1;for(let f=0;f<F;f++)O[f]=Math.min(1.5,O[f]/p)}
+  const om=lmean(O,Math.round(fps*.5)),e2=O.map((v,i)=>Math.max(0,v-om[i]));
+  // each candidate beat is scored with its 2- and 4-beat repeats too (a real beat also repeats every half bar and bar),
+  // which keeps syncopated patterns (3-3-2 groupings, dotted rhythms) from being mistaken for the beat
+  const lo=Math.floor(fps*60/180),hi=Math.ceil(fps*60/70),AC=new Float32Array(4*hi+6);let best=-1,bl=lo;
+  for(let l=lo-1;l<=4*hi+4;l++){let s=0;for(let i=0;i+l<F;i++)s+=e2[i]*e2[i+l];AC[l]=s/Math.max(1,F-l)}
+  const ACi=v=>{const i=Math.floor(v),u=v-i;return AC[i]*(1-u)+AC[i+1]*u};
+  for(let l=lo;l<=hi;l++){const v=(AC[l]+ACi(2*l)+ACi(4*l))*Math.exp(-.5*Math.pow(Math.log2(60*fps/l/120)/.9,2));if(v>best){best=v;bl=l}}
+  const y0=AC[bl-1],y1=AC[bl],y2=AC[bl+1],dd=y0-2*y1+y2,per=bl+(dd?cl(.5*(y0-y2)/dd,-.5,.5):0);
+  prog(.88);await tick();
+  // beat tracking (dynamic programming): each beat lands on a strong onset near one period after the one before
+  const sc=new Float32Array(F),bk=new Int32Array(F).fill(-1);
+  for(let f=0;f<F;f++){let bs=0,bi=-1;for(let q=Math.max(0,Math.floor(f-2*per));q<=Math.floor(f-per/2);q++){const r=Math.log((f-q)/per),v=sc[q]-100*r*r;if(v>bs){bs=v;bi=q}}
+    sc[f]=e2[f]+bs;bk[f]=bi}
+  let end=F-1,ev=-1;for(let f=Math.max(0,Math.floor(F-per));f<F;f++)if(sc[f]>ev){ev=sc[f];end=f}
+  const bf=[];for(let f=end;f>=0;f=bk[f])bf.push(f);bf.reverse();
+  const bt=[];for(let i=0;i<bf.length;i++){if(i){const g=bf[i]-bf[i-1],n=Math.round(g/per);for(let k=1;k<n;k++)bt.push(bf[i-1]+g*k/n)}bt.push(bf[i])}
+  while(bt.length&&bt[0]-per>=0)bt.unshift(bt[0]-per);while(bt.length&&bt[bt.length-1]+per<F)bt.push(bt[bt.length-1]+per);
+  const ne=E.map(x=>{const p=pct(x,.95)||1e-9;return x.map(v=>Math.min(1,v/p))});
+  // the downbeat: whichever of every 4th beat has the most bass
+  const s4=[0,0,0,0];bt.forEach((f,i)=>s4[i%4]+=ne[0][Math.min(F-1,Math.round(f))]);const db=s4.indexOf(Math.max(...s4));
+  bt.forEach((f,i)=>ons.push({t:tOf(f+1),b:4,s:i%4===db?1:.5}));
+  prog(1);
+  return{dur:buf.duration,fps,ne,ev:ons.sort((p,q)=>p.t-q.t),bpm:60*fps/(bt.length>1?(bt[bt.length-1]-bt[0])/(bt.length-1):per)};
 }
 function makeDemo(){const fps=60,dur=16,ev=[],ne=[0,1,2,3].map(()=>new Float32Array(fps*dur)),bt=60/118;
   for(let i=0;i*bt<dur;i++){const t=i*bt;ev.push({t,b:4,s:i%4?.5:1},{t,b:0,s:.85},{t:t+bt/2,b:3,s:.45},{t:t+bt/2,b:2,s:.5});if(i%2)ev.push({t,b:1,s:.7})}
@@ -273,22 +347,39 @@ function drawCon(c){
 }
 
 /* ---- playback + clock ---- */
-let A=makeDemo(),ctx=null,buf=null,src=null,t0=0,ei=-1,lastT=0;const acc=[0,0,0,0];
+// the track the site starts with: song.mp3 next to index.html. 'title' is what the status line shows.
+const START_SONG={file:'song.mp3',title:''};
+let A=makeDemo(),ctx=null,gainN=null,buf=null,src=null,t0=0,ei=-1,lastT=0,playing=false,offset=0,songName='';const acc=[0,0,0,0];
 const st=t=>{const e=$('veilTxt');if(e)e.textContent=t};
-function startAt(off){if(src){src.onended=null;try{src.stop()}catch(e){}}src=ctx.createBufferSource();src.buffer=buf;src.loop=true;src.connect(ctx.destination);src.start(0,off);t0=ctx.currentTime-off;ei=-1}
-let begun=false;
-async function begin(){
-  if(begun)return;begun=true;
-  try{ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();await ctx.resume();
-    st('Loading song…');const r=await fetch('song.mp3',{cache:'no-cache'});
-    if(!r.ok)throw new Error('song.mp3 not found ('+r.status+')');
-    const ab=await r.arrayBuffer();
-    if(ab.byteLength<2000)throw new Error('song.mp3 is only '+ab.byteLength+' bytes (Git LFS pointer?)');
-    st('Decoding…');let b;try{b=await ctx.decodeAudioData(ab)}catch(e){throw new Error('song.mp3 could not be decoded')}
-    st('Analyzing 0%');A=await analyse(b,p=>st('Analyzing '+Math.round(p*100)+'%'));
-    buf=b;startAt(0);$('veil').classList.add('hide');
-  }catch(e){console.error(e);begun=false;st((e&&e.message?e.message:'Could not load the song')+' · tap to retry')}}
-function togglePlay(){if(!buf)return begin();ctx.state==='running'?ctx.suspend():ctx.resume()}
+const status=m=>$('status').textContent=m;
+const fmt=t=>{t=Math.max(0,t|0);return `${t/60|0}:${String(t%60).padStart(2,'0')}`};
+function ensureCtx(){if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)();gainN=ctx.createGain();gainN.gain.value=$('vol').value/100;gainN.connect(ctx.destination)}return ctx}
+const songTime=()=>buf?(playing?(ctx.currentTime-t0)%buf.duration:offset):0;
+function startSrc(off){if(src){try{src.stop()}catch(e){}}src=ctx.createBufferSource();src.buffer=buf;src.loop=true;src.connect(gainN);src.start(0,off);t0=ctx.currentTime-off;ei=-1}
+function setPlayIcon(){$('play').textContent=playing?'❚❚':'▶';$('play').setAttribute('aria-label',playing?'Pause':'Play')}
+const nowPlaying=()=>`${songName?songName+' · ':''}${Math.round(A.bpm)} BPM`;
+function play(){if(!buf||playing)return;ensureCtx();ctx.resume();startSrc(offset);playing=true;$('hint').classList.add('gone');setPlayIcon();status(nowPlaying())}
+function pause(){if(!playing)return;offset=songTime();playing=false;const s=src;src=null;try{s.stop()}catch(e){}setPlayIcon()}
+function seekTo(t){if(!buf)return;offset=Math.max(0,Math.min(t,buf.duration-.01));ei=-1;if(playing)startSrc(offset)}
+// decode + analyse a song, then make it the current one (the scene keeps going; press play to hear it)
+async function useSong(ab,name){
+  ensureCtx();let b;try{b=await ctx.decodeAudioData(ab)}catch(e){throw new Error(`couldn't decode ${name||'the song'}`)}
+  const was=playing;pause();
+  const an=await analyse(b,p=>{const m=`Analyzing${name?' '+name:''}… ${Math.round(p*100)}%`;st(m);status(m)});
+  A=an;buf=b;songName=name;offset=0;ei=-1;$('t1').textContent=fmt(b.duration);$('seek').value=0;
+  if(was)play();else{status(`${nowPlaying()}. Press ▶ to play, or load an MP3.`);$('hint').classList.remove('gone')}}
+async function loadFile(f){if(!f)return;status(`Reading ${f.name}…`);
+  try{await useSong(await f.arrayBuffer(),f.name.replace(/\.[^.]+$/,''))}catch(e){console.error(e);status(`Couldn't read ${f.name}. Try an MP3, WAV or M4A file.`)}}
+// on load: fetch, decode and analyse the start song while the model loads, then lift the veil
+(async()=>{let msg='';
+  try{st('Loading song…');const r=await fetch(START_SONG.file,{cache:'no-cache'});
+    if(!r.ok)throw new Error(`${START_SONG.file} not found (${r.status})`);
+    const ab=await r.arrayBuffer();if(ab.byteLength<2000)throw new Error(`${START_SONG.file} is only ${ab.byteLength} bytes (Git LFS pointer?)`);
+    st('Decoding…');await useSong(ab,START_SONG.title)}
+  catch(e){console.error(e);msg=(e&&e.message)||"couldn't load the song"}
+  while(!modelDone)await new Promise(r=>setTimeout(r,100));
+  $('veil').classList.add('hide');
+  if(msg)status(`The start song didn't load (${msg}). Load an MP3 to play.`)})();
 function bs(t){let l=0,h=A.ev.length;while(l<h){const m=(l+h)>>1;A.ev[m].t<t?l=m+1:h=m}return l}
 
 function resize(){W=innerWidth;H=innerHeight;gl.setSize(W,H);cam.aspect=W/H;cam.fov=W/H<.8?44:34;cam.updateProjectionMatrix();fx.width=W*dpr;fx.height=H*dpr}
@@ -299,7 +390,9 @@ function frame(){
   requestAnimationFrame(frame);
   RT=performance.now()/1000;const dt=Math.min(.05,RT-prevRT);prevRT=RT;
   camD+=(S.zoom-camD)*Math.min(1,dt*8);cam.position.set(0,.15,camD);cam.lookAt(0,0,0);
-  const live=buf&&ctx,tc=live?(ctx.currentTime-t0)%buf.duration:RT%A.dur;
+  const tc=buf?songTime():RT%A.dur;
+  if(buf){if(!dragging){$('seek').value=tc/buf.duration*1000;$('t0').textContent=fmt(tc)}
+    if(playing&&(idle+=dt)>3.5)$('bar').classList.add('hide')}
   // the object: spin + slow float, independent of the music
   holder.rotation.y+=dt*S.spin;holder.position.y=(Math.sin(RT*1.1)*.09+Math.sin(RT*.47+1)*.035)*S.float+S.modelY;spot.intensity=3.2*S.light;beam.material.uniforms.uK.value=pool.material.uniforms.uK.value=S.beam;holder.rotation.z=.1+Math.sin(RT*.63)*.035;
   dustU.uT.value=RT;dustU.uDY.value=S.dustY;dustU.uK.value=S.beam;dustU.uDust.value=S.dust;dustU.uL.value=S.light;dustU.uPx.value=dpr;
@@ -310,7 +403,7 @@ function frame(){
   if(ei<0||tc<lastT-.25)ei=bs(tc);lastT=tc;
   while(ei<A.ev.length&&A.ev[ei].t<=tc+.02){if(A.ev[ei].t>=tc-.15)for(let k=S.density;k>0;k--)if(Math.random()<Math.min(1,k))spawn(A.ev[ei]);ei++}
   const fi=Math.min(A.ne[0].length-1,Math.floor(tc*A.fps)),rate=[3,4,6,8];
-  if(!live||ctx.state==='running')for(let k=0;k<4;k++){const e=A.ne[k][fi];acc[k]+=e*e*rate[k]*S.density*dt;while(acc[k]>=1){acc[k]--;spawn({b:k,s:.2+.3*e,tiny:true})}}
+  if(!buf||playing)for(let k=0;k<4;k++){const e=A.ne[k][fi];acc[k]+=e*e*rate[k]*S.density*dt;while(acc[k]>=1){acc[k]--;spawn({b:k,s:.2+.3*e,tiny:true})}}
   // draw overlay (reads the freshly rendered frame for the zoomed patches)
   c2.setTransform(dpr,0,0,dpr,0,0);c2.clearRect(0,0,W,H);
   for(let i=cons.length-1;i>=0;i--)if(!drawCon(cons[i]))cons.splice(i,1);
@@ -329,10 +422,27 @@ const vigEl=$('vig'),grainEl=$('grain');
 {const g=document.createElement('canvas');g.width=g.height=180;const x=g.getContext('2d'),im=x.createImageData(180,180);
  for(let i=0;i<im.data.length;i+=4){const v=Math.random()*255;im.data[i]=im.data[i+1]=im.data[i+2]=v;im.data[i+3]=255}
  x.putImageData(im,0,0);grainEl.style.backgroundImage=`url(${g.toDataURL()})`}
-$('veil').onclick=()=>{if(modelDone)begin()};
-let tapX=0,tapY=0,tapT=0;
-gl.domElement.addEventListener('pointerdown',e=>{tapX=e.clientX;tapY=e.clientY;tapT=performance.now()});
-gl.domElement.addEventListener('pointerup',e=>{if(buf&&performance.now()-tapT<350&&Math.hypot(e.clientX-tapX,e.clientY-tapY)<8)togglePlay()});
+/* ---- controls: the bar along the bottom (fades out while playing, back on any movement), the glass play button,
+   space to play/pause, and an MP3 dropped anywhere. Clicking the scene itself does nothing, so it never pauses */
+let idle=0,dragging=false,dragN=0;
+$('play').onclick=()=>playing?pause():play();
+$('hint').onclick=()=>play();
+if(navigator.userAgentData&&navigator.userAgentData.brands.some(b=>/Chromium/.test(b.brand)))$('hint').classList.add('liquid');
+$('file').onchange=e=>{loadFile(e.target.files[0]);e.target.value=''};
+$('vol').oninput=e=>{if(gainN)gainN.gain.value=e.target.value/100};
+$('seek').oninput=e=>{dragging=true;if(buf)$('t0').textContent=fmt(e.target.value/1000*buf.duration)};
+$('seek').onchange=e=>{dragging=false;if(buf)seekTo(e.target.value/1000*buf.duration)};
+$('fs').onclick=()=>{const d=document,el=d.documentElement;
+  if(d.fullscreenElement||d.webkitFullscreenElement){(d.exitFullscreen||d.webkitExitFullscreen).call(d);return}
+  const req=el.requestFullscreen||el.webkitRequestFullscreen;
+  try{const r=req&&req.call(el);if(!req)throw 0;if(r&&r.catch)r.catch(()=>status("Full screen isn't available in this view."))}catch(e){status("Full screen isn't available in this view.")}};
+addEventListener('keydown',e=>{if(e.code==='Space'&&!/INPUT|SELECT|BUTTON/.test(e.target.tagName)){e.preventDefault();playing?pause():play()}});
+const wake=()=>{idle=0;$('bar').classList.remove('hide')};
+addEventListener('pointermove',wake);addEventListener('pointerdown',wake);addEventListener('keydown',wake);addEventListener('touchstart',wake,{passive:true});
+addEventListener('dragenter',e=>{e.preventDefault();dragN++;$('drop').classList.add('on')});
+addEventListener('dragleave',()=>{if(--dragN<=0){dragN=0;$('drop').classList.remove('on')}});
+addEventListener('dragover',e=>e.preventDefault());
+addEventListener('drop',e=>{e.preventDefault();dragN=0;$('drop').classList.remove('on');const f=[...e.dataTransfer.files].find(f=>f.type.startsWith('audio')||/\.(mp3|wav|m4a|ogg|flac)$/i.test(f.name));if(f)loadFile(f)});
 frame();
 </script>
 </body>
